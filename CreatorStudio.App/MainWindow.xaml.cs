@@ -215,7 +215,8 @@ public partial class MainWindow : Window
         {
             Path.Combine(AppContext.BaseDirectory, fileName),
             Path.Combine(AppContext.BaseDirectory, "tools", fileName),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "tools", fileName))
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "tools", fileName)),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "tools", "ffmpeg", "ffmpeg-9.0.1-essentials_build", "bin", fileName))
         };
         foreach (var candidate in candidates) if (File.Exists(candidate)) return candidate;
         try
