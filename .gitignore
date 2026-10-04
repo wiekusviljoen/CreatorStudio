@@ -481,3 +481,4 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 tools/ffmpeg.zip 
+tools/ffmpeg.7z 
