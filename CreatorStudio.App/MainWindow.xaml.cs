@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -56,7 +58,7 @@ public partial class MainWindow : Window
         }
         SeekBar.Maximum = duration.TotalSeconds;
         _timer.Start(); Player.Play(); PlayButton.Content = "❚❚ Pause";
-        EditStatus.Text = "Video loaded. Split, trim, then export.";
+        EditStatus.Text = "Video loaded. Split, trim, reorder, then export.";
     }
 
     private void Player_MediaEnded(object sender, RoutedEventArgs e) { Player.Stop(); PlayButton.Content = "▶ Play"; }
@@ -129,47 +131,96 @@ public partial class MainWindow : Window
 
     private static string FormatTime(TimeSpan t) => $"{(int)t.TotalMinutes:00}:{t.Seconds:00}";
 
-    private void Export_Click(object sender, RoutedEventArgs e)
+    private async void Export_Click(object sender, RoutedEventArgs e)
     {
         if (_clips.Count == 0) { MessageBox.Show("Import a video first.", "CreatorStudio"); return; }
-        var ffmpeg = FindFfmpeg();
+        var ffmpeg = FindTool("ffmpeg.exe");
         if (ffmpeg == null)
         {
-            MessageBox.Show("FFmpeg is not installed yet. The export pipeline is ready, but the encoder still needs to be installed.", "CreatorStudio");
+            MessageBox.Show("FFmpeg is not installed yet. The export engine is ready, but the encoder must be installed on this PC.", "CreatorStudio");
             return;
         }
 
         var dialog = new SaveFileDialog { Title = "Export CreatorStudio video", Filter = "MP4 video|*.mp4", FileName = "creatorstudio-export.mp4" };
         if (dialog.ShowDialog() != true) return;
 
-        var source = _clips[0].SourcePath;
-        var first = _clips[0];
-        var duration = first.SourceOut - first.SourceIn;
-
-        // First production export: render the selected/first clip with its non-destructive trim.
-        var args = $"-y -ss {first.SourceIn.TotalSeconds:0.###} -i \"{source}\" -t {duration.TotalSeconds:0.###} -c:v libx264 -preset medium -crf 18 -c:a aac -movflags +faststart \"{dialog.FileName}\"";
-        var psi = new ProcessStartInfo(ffmpeg, args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
-        var process = Process.Start(psi);
-        if (process == null) { MessageBox.Show("Could not start FFmpeg.", "CreatorStudio"); return; }
-        process.EnableRaisingEvents = true;
-        process.Exited += (_, _) => Dispatcher.Invoke(() =>
-        {
-            EditStatus.Text = $"Export finished: {Path.GetFileName(dialog.FileName)}";
-            MessageBox.Show("Export complete.", "CreatorStudio");
-        });
-        EditStatus.Text = "Exporting MP4…";
-    }
-
-    private static string? FindFfmpeg()
-    {
-        var local = Path.Combine(AppContext.BaseDirectory, "tools", "ffmpeg.exe");
-        if (File.Exists(local)) return local;
-        var bundled = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "tools"));
-        var candidate = Directory.Exists(bundled) ? Directory.GetFiles(bundled, "ffmpeg.exe", SearchOption.AllDirectories).FirstOrDefault() : null;
-        if (candidate != null) return candidate;
         try
         {
-            var p = Process.Start(new ProcessStartInfo("where", "ffmpeg") { UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true });
+            EditStatus.Text = "Preparing multi-clip export…";
+            var hasAudio = await HasAudioAsync(ffmpeg, _clips[0].SourcePath);
+            var result = await RenderTimelineAsync(ffmpeg, dialog.FileName, hasAudio);
+            EditStatus.Text = "Export complete.";
+            MessageBox.Show(result ? $"Export complete:\n{dialog.FileName}" : "FFmpeg reported an export error. Check the source media and try again.", "CreatorStudio");
+        }
+        catch (Exception ex)
+        {
+            EditStatus.Text = "Export failed.";
+            MessageBox.Show(ex.Message, "CreatorStudio export error");
+        }
+    }
+
+    private async System.Threading.Tasks.Task<bool> HasAudioAsync(string ffprobeOrFfmpeg, string source)
+    {
+        var ffprobe = FindTool("ffprobe.exe");
+        if (ffprobe == null) return true;
+        var psi = new ProcessStartInfo(ffprobe, $"-v error -select_streams a:0 -show_entries stream=index -of csv=p=0 \"{source}\"")
+        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+        using var p = Process.Start(psi)!;
+        var output = await p.StandardOutput.ReadToEndAsync();
+        await p.WaitForExitAsync();
+        return !string.IsNullOrWhiteSpace(output);
+    }
+
+    private async System.Threading.Tasks.Task<bool> RenderTimelineAsync(string ffmpeg, string output, bool hasAudio)
+    {
+        var sources = _clips.Select(c => c.SourcePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var args = new StringBuilder("-y ");
+        foreach (var source in sources) args.Append($"-i \"{source}\" ");
+
+        var filters = new StringBuilder();
+        for (var i = 0; i < _clips.Count; i++)
+        {
+            var clip = _clips[i];
+            var input = sources.FindIndex(s => string.Equals(s, clip.SourcePath, StringComparison.OrdinalIgnoreCase));
+            var start = clip.SourceIn.TotalSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            var end = clip.SourceOut.TotalSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            filters.Append($"[{input}:v]trim=start={start}:end={end},setpts=PTS-STARTPTS[v{i}];");
+            if (hasAudio) filters.Append($"[{input}:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[a{i}];");
+        }
+
+        filters.Append("[v0]");
+        for (var i = 1; i < _clips.Count; i++) filters.Append($"[v{i}]");
+        if (hasAudio)
+        {
+            for (var i = 0; i < _clips.Count; i++) filters.Append($"[a{i}]");
+            filters.Append($"concat=n={_clips.Count}:v=1:a=1[v][a]");
+        }
+        else filters.Append($"concat=n={_clips.Count}:v=1:a=0[v]");
+
+        args.Append($"-filter_complex \"{filters}\" -map \"[v]\" ");
+        if (hasAudio) args.Append("-map \"[a]\" -c:a aac ");
+        args.Append($"-c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -movflags +faststart \"{output}\"");
+
+        var psi = new ProcessStartInfo(ffmpeg, args.ToString())
+        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
+        using var process = Process.Start(psi)!;
+        var error = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        return process.ExitCode == 0;
+    }
+
+    private static string? FindTool(string fileName)
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, fileName),
+            Path.Combine(AppContext.BaseDirectory, "tools", fileName),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "tools", fileName))
+        };
+        foreach (var candidate in candidates) if (File.Exists(candidate)) return candidate;
+        try
+        {
+            var p = Process.Start(new ProcessStartInfo("where", fileName) { UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true });
             if (p != null) { var path = p.StandardOutput.ReadLine(); p.WaitForExit(1000); if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) return path; }
         }
         catch { }
