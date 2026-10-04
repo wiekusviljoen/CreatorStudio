@@ -1,60 +1,16 @@
-<Window x:Class="CreatorStudio.App.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CreatorStudio" Width="1400" Height="850" MinWidth="1100" MinHeight="700"
-        Background="#0E1014" Foreground="#F5F7FA" WindowStartupLocation="CenterScreen">
-    <Window.Resources>
-        <SolidColorBrush x:Key="Panel" Color="#171A21"/><SolidColorBrush x:Key="Panel2" Color="#1D212A"/>
-        <SolidColorBrush x:Key="Muted" Color="#9299A8"/><SolidColorBrush x:Key="Accent" Color="#7C5CFF"/>
-        <Style TargetType="Button"><Setter Property="Background" Value="{StaticResource Panel2}"/><Setter Property="Foreground" Value="#F5F7FA"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="14,9"/><Setter Property="Margin" Value="4"/><Setter Property="FontSize" Value="13"/></Style>
-    </Window.Resources>
-    <Grid>
-        <Grid.RowDefinitions><RowDefinition Height="64"/><RowDefinition Height="*"/><RowDefinition Height="260"/></Grid.RowDefinitions>
-        <Border Background="#12151B" BorderBrush="#292E38" BorderThickness="0,0,0,1">
-            <Grid Margin="18,0"><Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="34" Height="34" CornerRadius="9" Background="{StaticResource Accent}" Margin="0,0,10,0"><TextBlock Text="C" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="CreatorStudio" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center"><Button Content="Media" Click="Media_Click"/><Button Content="Audio"/><Button Content="Text"/><Button Content="Captions"/><Button Content="Effects"/></StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"><Button Content="↶" FontSize="18"/><Button Content="↷" FontSize="18"/><Button Content="Export" Background="{StaticResource Accent}" Padding="22,10" Click="Export_Click"/></StackPanel>
-            </Grid>
-        </Border>
-        <Grid Grid.Row="1" Margin="14">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
-            <Border Background="{StaticResource Panel}" CornerRadius="12" Padding="12">
-                <StackPanel><TextBlock Text="PROJECT" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Bold" Margin="6,4,0,12"/>
-                    <Button Content="＋ Import media" Height="42" Background="{StaticResource Accent}" Click="Import_Click"/>
-                    <Button Content="📁 Media library" HorizontalContentAlignment="Left"/><Button Content="♫ Audio" HorizontalContentAlignment="Left"/><Button Content="T Text &amp; titles" HorizontalContentAlignment="Left"/><Button Content="◉ Captions" HorizontalContentAlignment="Left"/>
-                    <Separator Margin="4,16"/><TextBlock Text="CREATOR TOOLS" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Bold" Margin="6,8,0,8"/>
-                    <Button Content="⚡ Smart Hook" HorizontalContentAlignment="Left"/><Button Content="▥ Beat Sync" HorizontalContentAlignment="Left"/><Button Content="↗ Auto Reframe" HorizontalContentAlignment="Left"/><Button Content="◇ Creator Style" HorizontalContentAlignment="Left"/>
-                </StackPanel>
-            </Border>
-            <Grid Grid.Column="1" Margin="14,0"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="54"/></Grid.RowDefinitions>
-                <Border Background="#090B0F" CornerRadius="12" BorderBrush="#292E38" BorderThickness="1">
-                    <Grid><MediaElement x:Name="Player" LoadedBehavior="Manual" UnloadedBehavior="Manual" Stretch="Uniform" MediaOpened="Player_MediaOpened" MediaEnded="Player_MediaEnded"/>
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock x:Name="EmptyTitle" Text="Drop a video or photo here" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"/><TextBlock x:Name="EmptyHint" Text="or click Import media to start your first edit" Foreground="{StaticResource Muted}" Margin="0,8,0,0"/></StackPanel>
-                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14" Background="#1D212A" CornerRadius="6" Padding="8,5"><TextBlock Text="9:16 • TikTok / Reels" Foreground="#C9CED8"/></Border>
-                    </Grid>
-                </Border>
-                <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <Button x:Name="PlayButton" Content="▶ Play" Width="90" Click="Play_Click"/><Slider x:Name="SeekBar" Grid.Column="1" Minimum="0" Maximum="1" Margin="10,0" VerticalAlignment="Center" ValueChanged="SeekBar_ValueChanged"/><TextBlock x:Name="TimeText" Grid.Column="2" Text="00:00 / 00:00" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="8,0"/>
-                </Grid>
-            </Grid>
-            <Border Grid.Column="2" Background="{StaticResource Panel}" CornerRadius="12" Padding="14"><StackPanel>
-                <TextBlock Text="Inspector" FontSize="17" FontWeight="SemiBold"/><TextBlock x:Name="FileNameText" Text="No media selected" Foreground="{StaticResource Muted}" Margin="0,8,0,20" TextWrapping="Wrap"/>
-                <TextBlock Text="QUICK PRESETS" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Bold"/>
-                <Button Content="TikTok • 9:16" HorizontalContentAlignment="Left"/><Button Content="Instagram Reel • 9:16" HorizontalContentAlignment="Left"/><Button Content="Instagram Post • 4:5" HorizontalContentAlignment="Left"/><Button Content="YouTube Short • 9:16" HorizontalContentAlignment="Left"/>
-                <Separator Margin="4,14"/><TextBlock Text="Clip controls" FontSize="13" FontWeight="SemiBold"/>
-                <StackPanel Orientation="Horizontal"><Button Content="✂ Split at playhead" Click="Split_Click"/><Button Content="Delete clip" Click="Delete_Click"/></StackPanel>
-                <TextBlock x:Name="EditStatus" Text="Import a video to begin editing." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8"/>
-            </StackPanel></Border>
-        </Grid>
-        <Border Grid.Row="2" Background="#12151B" BorderBrush="#292E38" BorderThickness="0,1,0,0" Padding="14,10"><Grid>
-            <Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <StackPanel Orientation="Horizontal"><TextBlock Text="TIMELINE" FontWeight="Bold" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><TextBlock x:Name="TimelineTime" Text="  •  00:00" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/><Button Content="＋ Track" Padding="10,4" Margin="14,0,0,0"/></StackPanel>
-            <Grid Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="48"/><RowDefinition Height="48"/></Grid.RowDefinitions>
-                <Border x:Name="VideoClip" Grid.Row="0" Background="#29204A" CornerRadius="5" Margin="0,3" Visibility="Collapsed"><TextBlock x:Name="VideoClipText" Text="VIDEO 1" Foreground="White" VerticalAlignment="Center" Margin="14,0"/></Border>
-                <Border Grid.Row="1" Background="#191D25" CornerRadius="5" Margin="0,3"><TextBlock Text="AUDIO 1    Drop music or voiceover here" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0"/></Border>
-                <Border Grid.Row="2" Background="#191D25" CornerRadius="5" Margin="0,3"><TextBlock Text="TEXT / CAPTIONS    Add captions and titles" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="14,0"/></Border>
-            </Grid>
-        </Grid></Border>
-    </Grid>
+<Window x:Class="CreatorStudio.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="CreatorStudio" Width="1400" Height="850" Background="#0E1014" Foreground="White">
+<Window.Resources>
+<SolidColorBrush x:Key="Panel" Color="#171A21"/><SolidColorBrush x:Key="Panel2" Color="#1D212A"/><SolidColorBrush x:Key="Muted" Color="#9299A8"/><SolidColorBrush x:Key="Accent" Color="#7C5CFF"/>
+<Style TargetType="Button"><Setter Property="Background" Value="{StaticResource Panel2}"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="12,8"/><Setter Property="Margin" Value="3"/></Style>
+</Window.Resources>
+<Grid>
+<Grid.RowDefinitions><RowDefinition Height="64"/><RowDefinition Height="*"/><RowDefinition Height="275"/></Grid.RowDefinitions>
+<Border Grid.Row="0" Background="#12151B"><Grid Margin="18,0"><Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="CreatorStudio" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/><StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center"><Button Content="Media" Click="Media_Click"/><Button Content="Audio"/><Button Content="Text"/><Button Content="Captions"/><Button Content="Effects"/></StackPanel><Button Grid.Column="2" Content="Export" Background="{StaticResource Accent}" Click="Export_Click"/></Grid></Border>
+<Grid Grid.Row="1" Margin="14"><Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
+<Border Grid.Column="0" Background="{StaticResource Panel}" CornerRadius="12" Padding="12"><StackPanel><TextBlock Text="PROJECT" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Bold"/><Button Content="+ Import media" Height="42" Background="{StaticResource Accent}" Click="Import_Click"/><Button Content="Media library"/><Button Content="Audio"/><Button Content="Text &amp; titles"/><Button Content="Captions"/><Separator Margin="4,16"/><TextBlock Text="CREATOR TOOLS" Foreground="{StaticResource Muted}" FontSize="11"/><Button Content="Smart Hook"/><Button Content="Beat Sync"/><Button Content="Auto Reframe"/><Button Content="Creator Style"/></StackPanel></Border>
+<Grid Grid.Column="1" Margin="14,0"><Grid.RowDefinitions><RowDefinition/><RowDefinition Height="54"/></Grid.RowDefinitions><Border Grid.Row="0" Background="#090B0F" CornerRadius="12"><Grid><MediaElement x:Name="Player" LoadedBehavior="Manual" UnloadedBehavior="Manual" Stretch="Uniform" MediaOpened="Player_MediaOpened" MediaEnded="Player_MediaEnded"/><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock x:Name="EmptyTitle" Text="Import a video to start" FontSize="20" HorizontalAlignment="Center"/><TextBlock x:Name="EmptyHint" Text="Build clips on the timeline below" Foreground="{StaticResource Muted}" Margin="0,8" HorizontalAlignment="Center"/></StackPanel></Grid></Border><Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Button x:Name="PlayButton" Content="Play" Width="80" Click="Play_Click"/><Slider x:Name="SeekBar" Grid.Column="1" Margin="10,0" VerticalAlignment="Center" ValueChanged="SeekBar_ValueChanged"/><TextBlock x:Name="TimeText" Grid.Column="2" Text="00:00 / 00:00" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/></Grid></Grid>
+<Border Grid.Column="2" Background="{StaticResource Panel}" CornerRadius="12" Padding="14"><StackPanel><TextBlock Text="Inspector" FontSize="17" FontWeight="SemiBold"/><TextBlock x:Name="FileNameText" Text="No media selected" Foreground="{StaticResource Muted}" Margin="0,8,0,14"/><TextBlock Text="SELECTED CLIP" Foreground="{StaticResource Muted}" FontSize="11" FontWeight="Bold"/><TextBlock x:Name="ClipInfo" Text="No clip selected" Margin="0,5,0,8"/><StackPanel Orientation="Horizontal"><Button Content="Trim In -1s" Click="TrimIn_Click"/><Button Content="Trim Out -1s" Click="TrimOut_Click"/></StackPanel><StackPanel Orientation="Horizontal"><Button Content="Reset Trim" Click="ResetTrim_Click"/><Button Content="Split Here" Click="Split_Click"/></StackPanel><TextBlock x:Name="EditStatus" Text="Import a video to begin." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8"/></StackPanel></Border>
+</Grid>
+<Border Grid.Row="2" Background="#12151B" Padding="14,10"><Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition/><RowDefinition Height="34"/></Grid.RowDefinitions><TextBlock Text="TIMELINE" FontWeight="Bold" Foreground="{StaticResource Muted}"/><ListBox x:Name="ClipList" Grid.Row="1" Background="#101319" BorderThickness="0" SelectionChanged="ClipList_SelectionChanged"><ListBox.ItemTemplate><DataTemplate><Border Background="#29204A" CornerRadius="5" Margin="0,3" Padding="10,6"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><TextBlock Text="{Binding Label}"/><TextBlock Grid.Column="1" Text="{Binding DurationText}" HorizontalAlignment="Right" Foreground="#C9CED8"/></Grid></Border></DataTemplate></ListBox.ItemTemplate></ListBox><TextBlock Grid.Row="2" Text="VIDEO 1    |    AUDIO 1 - Drop music or voiceover here" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/></Grid></Border>
+</Grid>
 </Window>
