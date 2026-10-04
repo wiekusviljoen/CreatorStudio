@@ -11,22 +11,26 @@ using Microsoft.Win32;
 
 namespace CreatorStudio.App;
 
-public sealed class VideoClip
+public sealed class MediaClip
 {
     public string SourcePath { get; init; } = "";
     public string Label { get; set; } = "";
+    public bool IsPhoto { get; init; }
     public TimeSpan SourceIn { get; set; }
     public TimeSpan SourceOut { get; set; }
     public TimeSpan OriginalDuration { get; init; }
+    public double Rotation { get; set; }
+    public double Zoom { get; set; } = 1.0;
+    public double Brightness { get; set; } = 1.0;
     public string DurationText => $"{(SourceOut - SourceIn).TotalSeconds:0.0}s";
 }
 
 public partial class MainWindow : Window
 {
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
-    private readonly ObservableCollection<VideoClip> _clips = new();
+    private readonly ObservableCollection<MediaClip> _clips = new();
     private bool _seeking;
-    private VideoClip? _selected;
+    private MediaClip? _selected;
 
     public MainWindow()
     {
@@ -37,25 +41,54 @@ public partial class MainWindow : Window
 
     private void Import_Click(object sender, RoutedEventArgs e)
     {
-        var d = new OpenFileDialog { Title = "Import video", Filter = "Video files|*.mp4;*.mov;*.mkv;*.avi;*.webm|All files|*.*" };
+        var d = new OpenFileDialog { Title = "Import media", Multiselect = true, Filter = "Media files|*.mp4;*.mov;*.mkv;*.avi;*.webm;*.jpg;*.jpeg;*.png;*.bmp;*.webp|Video files|*.mp4;*.mov;*.mkv;*.avi;*.webm|Photo files|*.jpg;*.jpeg;*.png;*.bmp;*.webp|All files|*.*" };
         if (d.ShowDialog() != true) return;
-        Player.Stop(); Player.Source = new Uri(d.FileName);
-        FileNameText.Text = Path.GetFileName(d.FileName);
+        foreach (var file in d.FileNames)
+        {
+            var ext = Path.GetExtension(file).ToLowerInvariant();
+            if (new[] { ".jpg", ".jpeg", ".png", ".bmp", ".webp" }.Contains(ext))
+                AddPhoto(file);
+            else
+                LoadVideo(file);
+        }
+        if (_clips.Count > 0) ClipList.SelectedIndex = _clips.Count - 1;
+    }
+
+    private void AddPhoto(string path)
+    {
+        var duration = TimeSpan.FromSeconds(5);
+        _clips.Add(new MediaClip { SourcePath = path, Label = "Photo • " + Path.GetFileName(path), IsPhoto = true, SourceIn = TimeSpan.Zero, SourceOut = duration, OriginalDuration = duration });
+        ShowPhoto(_clips[^1]);
+        FileNameText.Text = Path.GetFileName(path);
+        EmptyTitle.Visibility = Visibility.Collapsed; EmptyHint.Visibility = Visibility.Collapsed;
+        EditStatus.Text = "Photo added. Adjust it in the Inspector.";
+    }
+
+    private void LoadVideo(string path)
+    {
+        Player.Stop(); Player.Source = new Uri(path);
+        FileNameText.Text = Path.GetFileName(path);
         EmptyTitle.Visibility = Visibility.Collapsed; EmptyHint.Visibility = Visibility.Collapsed;
         EditStatus.Text = "Loading video…";
+    }
+
+    private void ShowPhoto(MediaClip clip)
+    {
+        Player.Stop(); Player.Source = null;
+        PhotoPreview.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(clip.SourcePath));
+        PhotoPreview.Visibility = Visibility.Visible;
+        ApplyPhotoTransform();
     }
 
     private void Media_Click(object sender, RoutedEventArgs e) => Import_Click(sender, e);
 
     private void Player_MediaOpened(object sender, RoutedEventArgs e)
     {
+        PhotoPreview.Visibility = Visibility.Collapsed;
         if (!Player.NaturalDuration.HasTimeSpan) return;
         var duration = Player.NaturalDuration.TimeSpan;
-        if (_clips.Count == 0)
-        {
-            _clips.Add(new VideoClip { SourcePath = Player.Source!.LocalPath, Label = "Clip 1 • " + Path.GetFileName(Player.Source.LocalPath), SourceIn = TimeSpan.Zero, SourceOut = duration, OriginalDuration = duration });
-            ClipList.SelectedIndex = 0;
-        }
+        _clips.Add(new MediaClip { SourcePath = Player.Source!.LocalPath, Label = "Clip • " + Path.GetFileName(Player.Source.LocalPath), SourceIn = TimeSpan.Zero, SourceOut = duration, OriginalDuration = duration });
+        ClipList.SelectedIndex = _clips.Count - 1;
         SeekBar.Maximum = duration.TotalSeconds;
         _timer.Start(); Player.Play(); PlayButton.Content = "❚❚ Pause";
         EditStatus.Text = "Video loaded. Split, trim, reorder, then export.";
@@ -84,10 +117,38 @@ public partial class MainWindow : Window
 
     private void ClipList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        _selected = ClipList.SelectedItem as VideoClip;
+        _selected = ClipList.SelectedItem as MediaClip;
         if (_selected == null) return;
         ClipInfo.Text = $"{_selected.Label}\nIn {_selected.SourceIn.TotalSeconds:0.0}s  •  Out {_selected.SourceOut.TotalSeconds:0.0}s  •  {_selected.DurationText}";
-        if (Player.Source != null) Player.Position = _selected.SourceIn;
+        PhotoTools.Visibility = _selected.IsPhoto ? Visibility.Visible : Visibility.Collapsed;
+        if (_selected.IsPhoto) ShowPhoto(_selected);
+        else if (Player.Source != null) Player.Position = _selected.SourceIn;
+    }
+
+    private void RotatePhoto_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected?.IsPhoto != true) return;
+        _selected.Rotation = (_selected.Rotation + 90) % 360; ApplyPhotoTransform();
+    }
+
+    private void ZoomPhoto_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selected?.IsPhoto != true) return;
+        _selected.Zoom = Math.Min(2.5, _selected.Zoom + 0.1); ApplyPhotoTransform();
+    }
+
+    private void Brightness_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_selected?.IsPhoto != true) return;
+        _selected.Brightness = e.NewValue; PhotoPreview.Opacity = Math.Max(0.25, Math.Min(1.0, e.NewValue));
+    }
+
+    private void ApplyPhotoTransform()
+    {
+        if (_selected?.IsPhoto != true) return;
+        PhotoPreview.LayoutTransform = new System.Windows.Media.TransformGroup { Children = new System.Windows.Media.TransformCollection { new System.Windows.Media.ScaleTransform(_selected.Zoom, _selected.Zoom), new System.Windows.Media.RotateTransform(_selected.Rotation) } };
+        PhotoPreview.Opacity = Math.Max(0.25, Math.Min(1.0, _selected.Brightness));
+        BrightnessSlider.Value = _selected.Brightness;
     }
 
     private void TrimIn_Click(object sender, RoutedEventArgs e)
@@ -116,8 +177,8 @@ public partial class MainWindow : Window
         var cut = Player.Position;
         if (cut <= _selected.SourceIn + TimeSpan.FromMilliseconds(150) || cut >= _selected.SourceOut - TimeSpan.FromMilliseconds(150)) { EditStatus.Text = "Move the playhead inside the selected clip before splitting."; return; }
         var index = _clips.IndexOf(_selected);
-        var left = new VideoClip { SourcePath = _selected.SourcePath, Label = $"Clip {index + 1} • Part A", SourceIn = _selected.SourceIn, SourceOut = cut, OriginalDuration = _selected.OriginalDuration };
-        var right = new VideoClip { SourcePath = _selected.SourcePath, Label = $"Clip {index + 2} • Part B", SourceIn = cut, SourceOut = _selected.SourceOut, OriginalDuration = _selected.OriginalDuration };
+        var left = new MediaClip { SourcePath = _selected.SourcePath, Label = $"Clip {index + 1} • Part A", SourceIn = _selected.SourceIn, SourceOut = cut, OriginalDuration = _selected.OriginalDuration };
+        var right = new MediaClip { SourcePath = _selected.SourcePath, Label = $"Clip {index + 2} • Part B", SourceIn = cut, SourceOut = _selected.SourceOut, OriginalDuration = _selected.OriginalDuration };
         _clips.RemoveAt(index); _clips.Insert(index, left); _clips.Insert(index + 1, right); ClipList.SelectedIndex = index + 1;
         EditStatus.Text = $"Split at {FormatTime(cut)}.";
     }
@@ -147,7 +208,7 @@ public partial class MainWindow : Window
         try
         {
             EditStatus.Text = "Preparing multi-clip export…";
-            var hasAudio = await HasAudioAsync(ffmpeg, _clips[0].SourcePath);
+            var hasAudio = !_clips.Any(c => c.IsPhoto) && await HasAudioAsync(ffmpeg, _clips[0].SourcePath);
             var result = await RenderTimelineAsync(ffmpeg, dialog.FileName, hasAudio);
             EditStatus.Text = "Export complete.";
             MessageBox.Show(result ? $"Export complete:\n{dialog.FileName}" : "FFmpeg reported an export error. Check the source media and try again.", "CreatorStudio");
@@ -228,3 +289,4 @@ public partial class MainWindow : Window
         return null;
     }
 }
+
