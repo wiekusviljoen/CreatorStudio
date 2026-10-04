@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="CreatorStudio.App/CreatorStudio.App.csproj" />
+  <Project Path="CreatorStudio.Mobile/CreatorStudio.Mobile.csproj" />
+  <Project Path="CreatorStudio.Shared/CreatorStudio.Shared.csproj" />
 </Solution>
